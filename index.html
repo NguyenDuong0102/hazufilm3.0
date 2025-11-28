@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChillMovies Auto</title>
+    <link rel="stylesheet" href="https://cdn.plyr.io/3.7.8/plyr.css" />
+    <style>
+        body { background-color: #141414; color: #fff; font-family: sans-serif; margin: 0; padding: 20px; }
+        
+        /* HEADER */
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+        .logo { color: #e50914; font-size: 28px; font-weight: bold; }
+        .btn-refresh { background: #333; color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; }
+        .btn-refresh:hover { background: #555; }
+
+        /* DANH SÁCH PHIM (GRID) */
+        .movie-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 20px; }
+        .movie-card { background: #2f2f2f; border-radius: 8px; overflow: hidden; cursor: pointer; transition: 0.3s; position: relative; aspect-ratio: 2/3; display: flex; align-items: center; justify-content: center; text-align: center; padding: 10px; }
+        .movie-card:hover { transform: scale(1.05); background: #444; }
+        .movie-title { font-weight: bold; font-size: 16px; }
+
+        /* KHUNG XEM PHIM (PLAYER + EPS) */
+        .player-section { display: none; margin-top: 20px; }
+        .back-btn { background: transparent; color: #aaa; border: none; cursor: pointer; font-size: 16px; margin-bottom: 10px; }
+        .back-btn:hover { color: #fff; }
+
+        .watch-container { display: flex; gap: 20px; flex-wrap: wrap; }
+        .video-box { flex: 3; min-width: 300px; }
+        .episode-list { flex: 1; background: #1f1f1f; padding: 15px; border-radius: 8px; max-height: 500px; overflow-y: auto; min-width: 200px; }
+        
+        .ep-btn { display: block; width: 100%; padding: 10px; margin-bottom: 5px; background: #333; border: none; color: white; text-align: left; cursor: pointer; border-radius: 4px; }
+        .ep-btn:hover, .ep-btn.active { background: #e50914; }
+
+        /* MODAL CẤU HÌNH */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); justify-content: center; align-items: center; z-index: 100; }
+        .modal-content { background: #222; padding: 30px; border-radius: 10px; text-align: center; }
+        input { padding: 10px; width: 250px; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <div class="logo">CHILLMOVIES</div>
+        <div>
+            <button class="btn-refresh" onclick="refreshData()">🔄 Cập nhật phim mới</button>
+            <button class="btn-refresh" onclick="openConfig()">⚙️ Server</button>
+        </div>
+    </div>
+
+    <div id="catalogView">
+        <div class="movie-grid" id="movieGrid">
+            <p style="color: #888;">Đang tải danh sách phim...</p>
+        </div>
+    </div>
+
+    <div id="watchView" class="player-section">
+        <button class="back-btn" onclick="goBack()">← Quay lại danh sách</button>
+        <h2 id="currentMovieName">Tên Phim</h2>
+        
+        <div class="watch-container">
+            <div class="video-box">
+                <video id="player" playsinline controls></video>
+            </div>
+            <div class="episode-list">
+                <h3>Danh sách tập</h3>
+                <div id="episodesContainer">
+                    </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="configModal" class="modal">
+        <div class="modal-content">
+            <h3>Kết nối Server Render</h3>
+            <input type="text" id="serverInput" placeholder="https://web-cua-ban.onrender.com">
+            <br>
+            <button class="btn-refresh" onclick="saveConfig()">Lưu kết nối</button>
+        </div>
+    </div>
+
+    <script src="https://cdn.plyr.io/3.7.8/plyr.js"></script>
+    <script>
+        const player = new Plyr('#player');
+        let SERVER_URL = "https://hazufilmzzz.onrender.com";
+        let MOVIES_DATA = {};
+
+        // 1. Kiểm tra Server
+        if (!SERVER_URL) {
+            document.getElementById('configModal').style.display = 'flex';
+        } else {
+            fetchMovies();
+        }
+
+        function saveConfig() {
+            let url = document.getElementById('serverInput').value.trim();
+            if (url.endsWith('/')) url = url.slice(0, -1); // Xóa dấu / cuối
+            localStorage.setItem('server_url', url);
+            SERVER_URL = url;
+            document.getElementById('configModal').style.display = 'none';
+            fetchMovies();
+        }
+        function openConfig() { document.getElementById('configModal').style.display = 'flex'; }
+
+        // 2. Tải danh sách phim từ API
+        async function fetchMovies() {
+            try {
+                const res = await fetch(`${SERVER_URL}/api/catalog`);
+                MOVIES_DATA = await res.json();
+                renderGrid();
+            } catch (e) {
+                alert("Lỗi kết nối Server! Kiểm tra lại link Render.");
+            }
+        }
+
+        async function refreshData() {
+            const btn = document.querySelector('.btn-refresh');
+            btn.innerText = "Đang quét...";
+            await fetch(`${SERVER_URL}/api/refresh`);
+            await fetchMovies();
+            btn.innerText = "🔄 Cập nhật phim mới";
+        }
+
+        // 3. Hiển thị Grid Phim
+        function renderGrid() {
+            const grid = document.getElementById('movieGrid');
+            grid.innerHTML = '';
+            
+            // Lấy danh sách tên phim
+            const movieNames = Object.keys(MOVIES_DATA);
+            
+            if (movieNames.length === 0) {
+                grid.innerHTML = '<p>Chưa có phim nào. Hãy upload lên Telegram đúng cú pháp: Tên Phim - Tập 1.mp4</p>';
+                return;
+            }
+
+            movieNames.forEach(name => {
+                const card = document.createElement('div');
+                card.className = 'movie-card';
+                card.innerHTML = `<div class="movie-title">${name}</div>`;
+                card.onclick = () => openMovie(name);
+                grid.appendChild(card);
+            });
+        }
+
+        // 4. Mở giao diện xem phim
+        function openMovie(name) {
+            document.getElementById('catalogView').style.display = 'none';
+            document.getElementById('watchView').style.display = 'block';
+            document.getElementById('currentMovieName').innerText = name;
+
+            const episodes = MOVIES_DATA[name];
+            const epContainer = document.getElementById('episodesContainer');
+            epContainer.innerHTML = '';
+
+            // Sắp xếp tập phim (1, 2, 3...)
+            const sortedEps = Object.keys(episodes).sort((a, b) => {
+                return parseInt(a) - parseInt(b) || a.localeCompare(b);
+            });
+
+            sortedEps.forEach((ep, index) => {
+                const btn = document.createElement('button');
+                btn.className = 'ep-btn';
+                btn.innerText = `Tập ${ep}`;
+                btn.onclick = () => {
+                    playEpisode(episodes[ep]);
+                    // Highlight nút đang chọn
+                    document.querySelectorAll('.ep-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                };
+                epContainer.appendChild(btn);
+
+                // Tự động phát tập đầu tiên
+                if (index === 0) btn.click();
+            });
+        }
+
+        function playEpisode(msgId) {
+            const videoUrl = `${SERVER_URL}/watch/${msgId}`;
+            player.source = {
+                type: 'video',
+                sources: [{ src: videoUrl, type: 'video/mp4' }]
+            };
+            player.play();
+        }
+
+        function goBack() {
+            player.stop();
+            document.getElementById('watchView').style.display = 'none';
+            document.getElementById('catalogView').style.display = 'block';
+        }
+    </script>
+</body>
+</html>
