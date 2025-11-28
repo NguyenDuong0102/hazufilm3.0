@@ -13,7 +13,7 @@ CHANNEL_ID = -1003484849978      # THAY ID KÊNH (-100...)
 
 # [QUAN TRỌNG] ĐIỀN LINK MỜI VÀO ĐÂY ĐỂ FIX LỖI "MẤT TRÍ NHỚ"
 # Link dạng: https://t.me/+AbCd... (Lấy trong Manage Channel -> Invite Links)
-PRIVATE_LINK = "https://t.me/+xxxxxxxxxxxxxx" 
+PRIVATE_LINK = "https://t.me/+3MGJZA48w4E0YWE9" 
 # ====================================================
 
 app = Client("movie_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN, in_memory=True)
@@ -152,3 +152,4 @@ if __name__ == '__main__':
     ])
     port = int(os.environ.get("PORT", 8080))
     web.run_app(server, port=port)
+
