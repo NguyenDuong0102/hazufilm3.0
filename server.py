@@ -5,10 +5,10 @@ from aiohttp import web
 from pyrogram import Client
 
 # ================= CẤU HÌNH =================
-API_ID = 12345678                # THAY CỦA BẠN
-API_HASH = "dien_api_hash_o_day" # THAY CỦA BẠN
-BOT_TOKEN = "dien_bot_token_o_day" # THAY CỦA BẠN
-CHANNEL_ID = -100xxxxxxxxxx      # THAY ID KÊNH (-100...)
+API_ID = 30786494               # THAY CỦA BẠN
+API_HASH = "1b3896cea49b4aa6a5d4061f71d74897" # THAY CỦA BẠN
+BOT_TOKEN = "8578661013:AAHd_0zxURy-3LU20GXa9odpehNrw0qXWiU" # THAY CỦA BẠN
+CHANNEL_ID = -1003484849978      # THAY ID KÊNH (-100...)
 # ============================================
 
 app = Client("movie_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN, in_memory=True)
@@ -138,3 +138,4 @@ if __name__ == '__main__':
     server = web.Application()
     server.add_routes(app_routes)
     web.run_app(server, port=port)
+
