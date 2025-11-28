@@ -146,25 +146,34 @@ app_routes = [
 
 # ... (Phần trên giữ nguyên) ...
 
+# ... (Phần trên giữ nguyên) ...
+
+# Hàm này giúp Bot "học thuộc lòng" danh sách nhóm khi mới ngủ dậy
+async def force_connect_channel():
+    print("🔄 Đang quét danh sách các nhóm Bot đang tham gia...")
+    found = False
+    # Lấy danh sách tất cả các nhóm/kênh mà Bot đang ở trong đó
+    async for dialog in app.get_dialogs():
+        if dialog.chat.id == CHANNEL_ID:
+            found = True
+            print(f"✅ Đã tìm thấy Kênh mục tiêu: {dialog.chat.title} (ID: {dialog.chat.id})")
+            # Khi tìm thấy, Pyrogram sẽ tự động lưu Access Hash vào bộ nhớ
+            break
+    
+    if not found:
+        print(f"⚠️ CẢNH BÁO: Bot đã quét hết danh bạ nhưng KHÔNG THẤY kênh {CHANNEL_ID}!")
+        print("👉 Hãy kiểm tra: 1. Bot đã vào kênh chưa? 2. ID trong code có đúng 100% không?")
+
 if __name__ == '__main__':
     print("🚀 Đang khởi động Bot...")
     app.start()
     
-    # --- ĐOẠN CODE FIX LỖI ID NOT FOUND ---
-    try:
-        print(f"🔄 Đang kết nối với Kênh {CHANNEL_ID}...")
-        # Lệnh này ép Bot phải tìm và lưu thông tin Kênh vào bộ nhớ ngay lập tức
-        chat_info = app.get_chat(CHANNEL_ID) 
-        print(f"✅ Đã kết nối thành công với kênh: {chat_info.title}")
-    except Exception as e:
-        print(f"❌ LỖI NGHIÊM TRỌNG: Bot không vào được kênh {CHANNEL_ID}")
-        print("👉 Nguyên nhân có thể: 1. Bot chưa được thêm vào Kênh. 2. Bot chưa được set làm Admin. 3. ID Kênh bị sai.")
-        print(f"Chi tiết lỗi: {e}")
-    # --------------------------------------
+    # --- CHẠY THỦ THUẬT QUÉT DANH BẠ ---
+    # Dùng loop của client để chạy hàm async
+    app.loop.run_until_complete(force_connect_channel())
+    # -----------------------------------
     
     print("🌐 Đang khởi động Web Server...")
-    
-    # Lấy cổng từ môi trường Render
     port = int(os.environ.get("PORT", 8080))
     
     server = web.Application()
