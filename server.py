@@ -6,10 +6,10 @@ from pyrogram import Client
 # ==========================================
 # KHU VỰC THAY ĐỔI THÔNG TIN CỦA BẠN
 # ==========================================
-API_ID = 12345678                # Thay bằng số API_ID của bạn
-API_HASH = "dien_api_hash_o_day" # Thay bằng API_HASH của bạn
-BOT_TOKEN = "dien_bot_token_o_day" # Thay Bot Token của bạn
-CHANNEL_ID = -100xxxxxxxxxx      # Thay ID Kênh (Bắt buộc phải có -100 ở đầu)
+API_ID = 30786494                # Thay bằng số API_ID của bạn
+API_HASH = "1b3896cea49b4aa6a5d4061f71d74897" # Thay bằng API_HASH của bạn
+BOT_TOKEN = "8578661013:AAHd_0zxURy-3LU20GXa9odpehNrw0qXWiU" # Thay Bot Token của bạn
+CHANNEL_ID = -1003484849978      # Thay ID Kênh (Bắt buộc phải có -100 ở đầu)
 # ==========================================
 
 # in_memory=True: Không lưu file session, phù hợp chạy trên Render
@@ -110,3 +110,4 @@ if __name__ == '__main__':
     server = web.Application()
     server.add_routes(routes)
     web.run_app(server, port=port)
+
