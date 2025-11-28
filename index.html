@@ -3,187 +3,278 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HazuChillzz</title>
-    <link rel="stylesheet" href="https://cdn.plyr.io/3.7.8/plyr.css" />
+    <title>HazuFilm - Xem Phim Telegram</title>
+    <!-- Bootstrap 5 Dark Theme -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        body { background-color: #141414; color: #fff; font-family: sans-serif; margin: 0; padding: 20px; }
-        
-        /* HEADER */
-        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
-        .logo { color: #e50914; font-size: 28px; font-weight: bold; }
-        .btn-refresh { background: #333; color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; }
-        .btn-refresh:hover { background: #555; }
-
-        /* DANH SÁCH PHIM (GRID) */
-        .movie-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 20px; }
-        .movie-card { background: #2f2f2f; border-radius: 8px; overflow: hidden; cursor: pointer; transition: 0.3s; position: relative; aspect-ratio: 2/3; display: flex; align-items: center; justify-content: center; text-align: center; padding: 10px; }
-        .movie-card:hover { transform: scale(1.05); background: #444; }
-        .movie-title { font-weight: bold; font-size: 16px; }
-
-        /* KHUNG XEM PHIM (PLAYER + EPS) */
-        .player-section { display: none; margin-top: 20px; }
-        .back-btn { background: transparent; color: #aaa; border: none; cursor: pointer; font-size: 16px; margin-bottom: 10px; }
-        .back-btn:hover { color: #fff; }
-
-        .watch-container { display: flex; gap: 20px; flex-wrap: wrap; }
-        .video-box { flex: 3; min-width: 300px; }
-        .episode-list { flex: 1; background: #1f1f1f; padding: 15px; border-radius: 8px; max-height: 500px; overflow-y: auto; min-width: 200px; }
-        
-        .ep-btn { display: block; width: 100%; padding: 10px; margin-bottom: 5px; background: #333; border: none; color: white; text-align: left; cursor: pointer; border-radius: 4px; }
-        .ep-btn:hover, .ep-btn.active { background: #e50914; }
-
-        /* MODAL CẤU HÌNH */
-        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); justify-content: center; align-items: center; z-index: 100; }
-        .modal-content { background: #222; padding: 30px; border-radius: 10px; text-align: center; }
-        input { padding: 10px; width: 250px; margin-bottom: 10px; }
+        body {
+            background-color: #141414;
+            color: #fff;
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        }
+        .navbar {
+            background-color: #000000 !important;
+        }
+        .movie-card {
+            transition: transform 0.3s;
+            cursor: pointer;
+            background-color: #1f1f1f;
+            border-radius: 8px;
+            overflow: hidden;
+            height: 100%;
+        }
+        .movie-card:hover {
+            transform: scale(1.05);
+            z-index: 10;
+            box-shadow: 0 0 20px rgba(229, 9, 20, 0.5);
+        }
+        .card-img-top {
+            height: 300px;
+            object-fit: cover;
+            background-color: #333;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3rem;
+            color: #555;
+        }
+        .modal-content {
+            background-color: #181818;
+            color: #fff;
+        }
+        .btn-episode {
+            margin: 5px;
+            background-color: #333;
+            color: white;
+            border: none;
+        }
+        .btn-episode:hover, .btn-episode.active {
+            background-color: #e50914;
+            color: white;
+        }
+        .video-container {
+            position: relative;
+            padding-bottom: 56.25%; /* 16:9 */
+            height: 0;
+            background: #000;
+        }
+        .video-container video {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        /* Loading Spinner */
+        #loading {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: #141414;
+            z-index: 9999;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
     </style>
 </head>
 <body>
 
-    <div class="header">
-        <div class="logo">HazuChill</div>
-        <div>
-            <button class="btn-refresh" onclick="refreshData()">🔄 Cập nhật phim mới</button>
-            <button class="btn-refresh" onclick="openConfig()">⚙️ Server</button>
-        </div>
+    <!-- Loading Screen -->
+    <div id="loading">
+        <div class="spinner-border text-danger" role="status" style="width: 3rem; height: 3rem;"></div>
+        <p class="mt-3 text-muted">Đang tải kho phim...</p>
     </div>
 
-    <div id="catalogView">
-        <div class="movie-grid" id="movieGrid">
-            <p style="color: #888;">Đang tải danh sách phim...</p>
-        </div>
-    </div>
-
-    <div id="watchView" class="player-section">
-        <button class="back-btn" onclick="goBack()">← Quay lại danh sách</button>
-        <h2 id="currentMovieName">Tên Phim</h2>
-        
-        <div class="watch-container">
-            <div class="video-box">
-                <video id="player" playsinline controls></video>
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark sticky-top mb-4">
+        <div class="container">
+            <a class="navbar-brand fw-bold text-danger" href="#">HAZUFILM</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="#">Trang chủ</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" onclick="refreshCatalog()">Cập nhật phim mới</a>
+                    </li>
+                </ul>
+                <form class="d-flex">
+                    <input class="form-control me-2 bg-dark text-white border-secondary" type="search" id="searchInput" placeholder="Tìm tên phim..." aria-label="Search">
+                </form>
             </div>
-            <div class="episode-list">
-                <h3>Danh sách tập</h3>
-                <div id="episodesContainer">
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container">
+        <h3 class="mb-4 border-start border-4 border-danger ps-3">Phim Mới Cập Nhật</h3>
+        <div class="row row-cols-2 row-cols-md-4 row-cols-lg-5 g-4" id="movieGrid">
+            <!-- Movie Cards will be inserted here -->
+        </div>
+    </div>
+
+    <!-- Player Modal -->
+    <div class="modal fade" id="playerModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header border-bottom-0">
+                    <h5 class="modal-title" id="modalTitle">Tên Phim</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close" onclick="stopVideo()"></button>
+                </div>
+                <div class="modal-body p-0">
+                    <div class="video-container">
+                        <video id="mainPlayer" controls controlsList="nodownload">
+                            <source src="" type="video/mp4">
+                            Trình duyệt không hỗ trợ.
+                        </video>
                     </div>
+                </div>
+                <div class="modal-footer justify-content-start border-top-0" id="episodeList" style="overflow-x: auto; flex-wrap: nowrap; background: #222;">
+                    <!-- Episode Buttons -->
+                </div>
             </div>
         </div>
     </div>
 
-    <div id="configModal" class="modal">
-
-    <script src="https://cdn.plyr.io/3.7.8/plyr.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        const player = new Plyr('#player');
-        let SERVER_URL = "https://hazufilm3-0.onrender.com";
-        let MOVIES_DATA = {};
+        let fullCatalog = {};
+        const apiBase = window.location.origin; // Tự động lấy URL hiện tại
 
-        // 1. Kiểm tra Server
-        if (!SERVER_URL) {
-            document.getElementById('configModal').style.display = 'flex';
-        } else {
-            fetchMovies();
-        }
-
-        function saveConfig() {
-            let url = document.getElementById('serverInput').value.trim();
-            if (url.endsWith('/')) url = url.slice(0, -1); // Xóa dấu / cuối
-            localStorage.setItem('server_url', url);
-            SERVER_URL = url;
-            document.getElementById('configModal').style.display = 'none';
-            fetchMovies();
-        }
-        function openConfig() { document.getElementById('configModal').style.display = 'flex'; }
-
-        // 2. Tải danh sách phim từ API
-        async function fetchMovies() {
+        // 1. Tải danh sách phim khi mở web
+        async function loadCatalog() {
             try {
-                const res = await fetch(`${SERVER_URL}/api/catalog`);
-                MOVIES_DATA = await res.json();
-                renderGrid();
-            } catch (e) {
-                alert("Lỗi kết nối Server! Kiểm tra lại link Render.");
+                const response = await fetch(`${apiBase}/api/catalog`);
+                fullCatalog = await response.json();
+                renderMovies(fullCatalog);
+                document.getElementById('loading').style.display = 'none';
+            } catch (error) {
+                console.error("Lỗi tải phim:", error);
+                document.getElementById('loading').innerHTML = `<p class='text-danger'>Lỗi kết nối Server! <br> Hãy thử tải lại trang.</p>`;
             }
         }
 
-        async function refreshData() {
-            const btn = document.querySelector('.btn-refresh');
-            btn.innerText = "Đang quét...";
-            await fetch(`${SERVER_URL}/api/refresh`);
-            await fetchMovies();
-            btn.innerText = "🔄 Cập nhật phim mới";
-        }
-
-        // 3. Hiển thị Grid Phim
-        function renderGrid() {
+        // 2. Hiển thị phim ra màn hình
+        function renderMovies(catalog) {
             const grid = document.getElementById('movieGrid');
             grid.innerHTML = '';
             
-            // Lấy danh sách tên phim
-            const movieNames = Object.keys(MOVIES_DATA);
-            
-            if (movieNames.length === 0) {
-                grid.innerHTML = '<p>Chưa có phim nào. Hãy upload lên Telegram đúng cú pháp: Tên Phim - Tập 1.mp4</p>';
+            // Convert object to array for easier sorting/filtering
+            const movies = Object.entries(catalog);
+
+            if (movies.length === 0) {
+                grid.innerHTML = '<p class="text-center text-muted w-100">Chưa có phim nào. Hãy bấm "Cập nhật phim mới".</p>';
                 return;
             }
 
-            movieNames.forEach(name => {
-                const card = document.createElement('div');
-                card.className = 'movie-card';
-                card.innerHTML = `<div class="movie-title">${name}</div>`;
-                card.onclick = () => openMovie(name);
-                grid.appendChild(card);
+            movies.forEach(([title, episodes]) => {
+                // Tạo ảnh đại diện ngẫu nhiên bằng tên phim (vì chưa có poster thật)
+                const firstChar = title.charAt(0).toUpperCase();
+                
+                const col = document.createElement('div');
+                col.className = 'col';
+                col.innerHTML = `
+                    <div class="movie-card shadow-sm" onclick="openMovie('${title}')">
+                        <div class="card-img-top">
+                            <i class="fas fa-play-circle text-danger mb-2"></i>
+                        </div>
+                        <div class="p-3">
+                            <h6 class="card-title text-truncate" title="${title}">${title}</h6>
+                            <small class="text-muted">${Object.keys(episodes).length} Tập</small>
+                        </div>
+                    </div>
+                `;
+                grid.appendChild(col);
             });
         }
 
-        // 4. Mở giao diện xem phim
-        function openMovie(name) {
-            document.getElementById('catalogView').style.display = 'none';
-            document.getElementById('watchView').style.display = 'block';
-            document.getElementById('currentMovieName').innerText = name;
+        // 3. Tìm kiếm phim (Client-side)
+        document.getElementById('searchInput').addEventListener('input', (e) => {
+            const keyword = e.target.value.toLowerCase();
+            const filtered = {};
+            
+            for (const [title, data] of Object.entries(fullCatalog)) {
+                if (title.toLowerCase().includes(keyword)) {
+                    filtered[title] = data;
+                }
+            }
+            renderMovies(filtered);
+        });
 
-            const episodes = MOVIES_DATA[name];
-            const epContainer = document.getElementById('episodesContainer');
-            epContainer.innerHTML = '';
+        // 4. Mở Modal xem phim
+        const playerModal = new bootstrap.Modal(document.getElementById('playerModal'), {
+            backdrop: 'static', keyboard: false
+        });
+        const player = document.getElementById('mainPlayer');
 
-            // Sắp xếp tập phim (1, 2, 3...)
-            const sortedEps = Object.keys(episodes).sort((a, b) => {
-                return parseInt(a) - parseInt(b) || a.localeCompare(b);
-            });
-
-            sortedEps.forEach((ep, index) => {
+        function openMovie(title) {
+            const episodes = fullCatalog[title];
+            document.getElementById('modalTitle').innerText = title;
+            
+            const epList = document.getElementById('episodeList');
+            epList.innerHTML = '<span class="text-muted me-2 small align-self-center">Danh sách tập:</span>';
+            
+            // Sắp xếp tập phim
+            const epKeys = Object.keys(episodes).sort();
+            
+            // Tạo nút bấm cho từng tập
+            epKeys.forEach((ep, index) => {
                 const btn = document.createElement('button');
-                btn.className = 'ep-btn';
-                btn.innerText = `Tập ${ep}`;
-                btn.onclick = () => {
-                    playEpisode(episodes[ep]);
-                    // Highlight nút đang chọn
-                    document.querySelectorAll('.ep-btn').forEach(b => b.classList.remove('active'));
-                    btn.classList.add('active');
-                };
-                epContainer.appendChild(btn);
-
-                // Tự động phát tập đầu tiên
-                if (index === 0) btn.click();
+                btn.className = `btn btn-episode btn-sm ${index === 0 ? 'active' : ''}`;
+                btn.innerText = ep;
+                btn.onclick = () => playEpisode(episodes[ep].msg_id, btn);
+                epList.appendChild(btn);
             });
+
+            // Tự động phát tập đầu tiên
+            if (epKeys.length > 0) {
+                playEpisode(episodes[epKeys[0]].msg_id, null);
+            }
+
+            playerModal.show();
         }
 
-        function playEpisode(msgId) {
-            const videoUrl = `${SERVER_URL}/watch/${msgId}`;
-            player.source = {
-                type: 'video',
-                sources: [{ src: videoUrl, type: 'video/mp4' }]
-            };
+        function playEpisode(msgId, btnElement) {
+            // Highlight nút đang chọn
+            if (btnElement) {
+                document.querySelectorAll('.btn-episode').forEach(b => b.classList.remove('active'));
+                btnElement.classList.add('active');
+            }
+
+            // Set source video
+            player.src = `${apiBase}/watch/${msgId}`;
             player.play();
         }
 
-        function goBack() {
-            player.stop();
-            document.getElementById('watchView').style.display = 'none';
-            document.getElementById('catalogView').style.display = 'block';
+        function stopVideo() {
+            player.pause();
+            player.src = "";
         }
+
+        // 5. Trigger Refresh
+        async function refreshCatalog() {
+            if(confirm("Bạn có muốn server quét lại tin nhắn Telegram để tìm phim mới không?")) {
+                document.getElementById('loading').style.display = 'flex';
+                await fetch(`${apiBase}/api/refresh`);
+                setTimeout(() => {
+                    loadCatalog(); // Tải lại sau 3s
+                }, 3000);
+            }
+        }
+
+        // Chạy khi mở trang
+        loadCatalog();
+
+        // Xử lý đóng modal bằng nút ESC
+        document.getElementById('playerModal').addEventListener('hidden.bs.modal', function () {
+            stopVideo();
+        });
     </script>
 </body>
-
 </html>
-
