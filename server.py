@@ -1,6 +1,6 @@
 import os
 import asyncio
-import traceback
+import re  # <--- Thư viện xử lý chuỗi thông minh
 from aiohttp import web
 from pyrogram import Client
 
@@ -11,16 +11,10 @@ BOT_TOKEN = "8578661013:AAHd_0zxURy-3LU20GXa9odpehNrw0qXWiU" # THAY CỦA BẠN
 CHANNEL_ID = -1003484849978      # THAY ID KÊNH (-100...)
 # ============================================
 
-# --- [QUAN TRỌNG] ĐIỀN LINK MỜI VÀO ĐÂY ---
-# Link có dạng: https://t.me/+AbCdEfGhIjK...
-PRIVATE_LINK = "https://t.me/+3MGJZA48w4E0YWE9" 
-# ====================================================
-
-# Khởi tạo Bot
 app = Client("movie_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN, in_memory=True)
 MOVIE_CATALOG = {} 
 
-# --- MIDDLEWARE CORS ---
+# --- MIDDLEWARE CORS (GIỮ NGUYÊN) ---
 @web.middleware
 async def cors_middleware(request, handler):
     if request.method == 'OPTIONS':
@@ -38,57 +32,82 @@ async def cors_middleware(request, handler):
         ex.headers['Access-Control-Allow-Origin'] = '*'
         raise ex
 
-# --- HÀM KẾT NỐI KÊNH (BÍ KÍP CHỮA MẤT TRÍ NHỚ) ---
-async def fix_channel_access():
-    print("🔄 Đang dùng Link Mời để tìm kênh...")
-    try:
-        # Bot sẽ dùng Link Mời để "nhìn thấy" kênh -> Tự động lưu Access Hash
-        chat = await app.get_chat(PRIVATE_LINK)
-        print(f"✅ KẾT NỐI THÀNH CÔNG: {chat.title}")
-        print(f"ℹ️ ID Kênh thực tế: {chat.id}")
-        
-        # Nếu ID trong code khác ID thực tế, cảnh báo ngay
-        if chat.id != CHANNEL_ID:
-            print(f"⚠️ CẢNH BÁO: CHANNEL_ID bạn điền ({CHANNEL_ID}) khác với ID thực tế ({chat.id}). Hãy sửa lại code!")
-    except Exception as e:
-        print(f"❌ Vẫn lỗi kết nối: {e}")
-        print("👉 Kiểm tra lại: PRIVATE_LINK đã đúng chưa? Bot đã vào kênh chưa?")
+# --- [LOGIC MỚI] XỬ LÝ TÊN THÔNG MINH ---
+def smart_parse_name(filename):
+    # Bỏ đuôi file
+    base_name = os.path.splitext(filename)[0]
+    
+    # 1. Ưu tiên: Tách bằng dấu gạch ngang " - " (Chuẩn nhất)
+    if " - " in base_name:
+        name, ep = base_name.rsplit(" - ", 1)
+        return name.strip(), ep.strip().replace("Tập", "").replace("Tap", "").replace("Ep", "").strip()
 
-# --- QUÉT PHIM ---
+    # 2. Regex: Tìm các từ khóa Tập/Tap/Ep/Part + Số (Ví dụ: "Phim A Tap 1")
+    # Pattern giải thích: (Tên phim) (Khoảng cách) (Từ khóa) (Số tập)
+    match = re.search(r'(.+?)(?:\s+|_|\.)(?:Tập|Tap|Ep|Episode|Part|E)\s*(\d+)', base_name, re.IGNORECASE)
+    if match:
+        name = match.group(1).replace(".", " ").strip()
+        ep = match.group(2).strip()
+        return name, ep
+
+    # 3. Regex: Tìm số ở cuối cùng (Ví dụ: "Phim A 01")
+    match_number = re.search(r'(.+?)\s+(\d+)$', base_name)
+    if match_number:
+        name = match_number.group(1).strip()
+        ep = match_number.group(2).strip()
+        return name, ep
+        
+    # 4. Nếu không khớp gì cả -> Coi là phim lẻ
+    return base_name.strip(), "Full"
+
+# --- HÀM QUÉT PHIM (UNLIMITED & SMART) ---
 async def refresh_catalog():
     global MOVIE_CATALOG
-    print("🔄 Đang quét phim...")
+    print("🔄 ĐANG QUÉT TOÀN BỘ KÊNH (UNLIMITED)...")
     temp = {}
+    count_msg = 0
+    
     try:
-        # Lúc này Bot đã có Access Hash từ hàm fix_channel_access, nên lệnh này sẽ chạy ngon
-        async for msg in app.get_chat_history(CHANNEL_ID, limit=200):
+        # limit=0 nghĩa là lấy KHÔNG GIỚI HẠN (toàn bộ lịch sử)
+        async for msg in app.get_chat_history(CHANNEL_ID, limit=0):
+            count_msg += 1
+            
             if msg.video or msg.document:
+                # Lấy tên file
                 fname = msg.video.file_name if msg.video else (msg.document.file_name or msg.caption or "NoName")
-                try:
-                    clean_name = os.path.splitext(fname)[0]
-                    if " - " in clean_name:
-                        name, ep = clean_name.rsplit(" - ", 1)
-                        name = name.strip()
-                        ep = ep.strip().replace("Tap", "").replace("Tập", "").strip()
-                    else:
-                        name = clean_name
-                        ep = "Full"
-                    if name not in temp: temp[name] = {}
-                    temp[name][ep] = msg.id
-                except: pass
-        MOVIE_CATALOG = temp
-        print(f"✅ Đã cập nhật {len(MOVIE_CATALOG)} phim.")
-    except Exception as e:
-        print(f"❌ Lỗi quét phim (Sau khi kết nối): {e}")
+                
+                # Bỏ qua nếu không có tên file
+                if fname == "NoName": continue
 
-# --- API HANDLERS ---
+                # Dùng hàm xử lý thông minh ở trên
+                name, ep = smart_parse_name(fname)
+                
+                # Gom nhóm
+                if name not in temp: temp[name] = {}
+                
+                # Nếu đã có tập này rồi thì bỏ qua (Tránh trùng lặp)
+                if ep not in temp[name]:
+                    temp[name][ep] = msg.id
+            
+            # Log nhẹ mỗi 100 tin nhắn để biết Bot vẫn đang chạy
+            if count_msg % 100 == 0:
+                print(f"   --> Đã quét {count_msg} tin nhắn...")
+
+        MOVIE_CATALOG = temp
+        print(f"🏁 HOÀN TẤT: Quét {count_msg} tin nhắn. Tìm thấy {len(MOVIE_CATALOG)} bộ phim.")
+        
+    except Exception as e:
+        print(f"❌ Lỗi quét phim: {e}")
+
+# --- CÁC HÀM API & STREAM (GIỮ NGUYÊN) ---
 async def get_catalog(request):
     if not MOVIE_CATALOG: await refresh_catalog()
     return web.json_response(MOVIE_CATALOG)
 
 async def trigger_refresh(request):
-    await refresh_catalog()
-    return web.Response(text="Updated")
+    # Chạy ngầm (background) để không làm đơ web nếu quét lâu
+    asyncio.create_task(refresh_catalog()) 
+    return web.Response(text="Đang bắt đầu quét toàn bộ kênh! Hãy đợi vài phút rồi F5 trang web.")
 
 async def stream_handler(request):
     try:
@@ -125,11 +144,18 @@ async def stream_handler(request):
     except Exception as e:
         return web.Response(status=500, text="Server Error")
 
-# --- MAIN ---
+# --- STARTUP ---
 async def on_startup():
     print("🚀 Đang khởi động...")
     await app.start()
-    await fix_channel_access() # Chạy hàm kết nối bằng Link
+    
+    # Gửi tin mồi để đảm bảo kết nối
+    try:
+        m = await app.send_message(CHANNEL_ID, "Scan Started!")
+        await m.delete()
+    except: pass
+
+    # Quét phim ngay khi mở
     await refresh_catalog()
 
 if __name__ == '__main__':
@@ -146,4 +172,3 @@ if __name__ == '__main__':
     
     port = int(os.environ.get("PORT", 8080))
     web.run_app(server, port=port)
-
