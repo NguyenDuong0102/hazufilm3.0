@@ -8,14 +8,8 @@ from pyrogram import Client
 API_ID = 30786494               # THAY CỦA BẠN
 API_HASH = "1b3896cea49b4aa6a5d4061f71d74897" # THAY CỦA BẠN
 BOT_TOKEN = "8578661013:AAHd_0zxURy-3LU20GXa9odpehNrw0qXWiU" # THAY CỦA BẠN
-CHANNEL_ID = -1003484849978      # THAY ID KÊNH (-100...)
+CHANNEL_ID = "hazufilm"      # THAY ID KÊNH (-100...)
 # ============================================
-
-# [QUAN TRỌNG] ĐIỀN LINK MỜI VÀO ĐÂY ĐỂ FIX LỖI "MẤT TRÍ NHỚ"
-# Link dạng: https://t.me/+AbCd... (Lấy trong Manage Channel -> Invite Links)
-PRIVATE_LINK = "https://t.me/+3MGJZA48w4E0YWE9" 
-# ====================================================
-
 app = Client("movie_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN, in_memory=True)
 MOVIE_CATALOG = {} 
 
@@ -31,80 +25,63 @@ async def cors_middleware(request, handler):
     try:
         response = await handler(request)
         response.headers['Access-Control-Allow-Origin'] = '*'
-        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Range'
         return response
     except web.HTTPException as ex:
         ex.headers['Access-Control-Allow-Origin'] = '*'
         raise ex
 
-# --- HÀM XỬ LÝ TÊN (CHẾ ĐỘ AN TOÀN - KHÔNG BỎ SÓT) ---
-def safe_parse_name(filename):
-    # 1. Bỏ đuôi file (.mp4, .mkv)
-    base_name = os.path.splitext(filename)[0]
-    
-    # 2. Thử tách bằng dấu gạch ngang " - " (Nếu có)
-    if " - " in base_name:
-        try:
-            name, ep = base_name.rsplit(" - ", 1)
-            return name.strip(), ep.strip()
-        except:
-            pass # Nếu lỗi thì xuống dưới lấy nguyên tên
-            
-    # 3. Nếu không tách được -> Lấy nguyên tên file làm tên Phim
-    return base_name.strip(), "Xem Ngay"
-
-# --- HÀM KẾT NỐI (BẮT BUỘC ĐỂ KHÔNG BỊ LỖI PEER ID) ---
-async def fix_channel_access():
-    print("🔄 Đang kết nối kênh bằng Link Mời...")
-    try:
-        if "t.me/+" in PRIVATE_LINK:
-            chat = await app.get_chat(PRIVATE_LINK)
-            print(f"✅ Đã kết nối: {chat.title}")
-        else:
-            print("⚠️ Bạn chưa điền PRIVATE_LINK hoặc Link không đúng dạng t.me/+")
-    except Exception as e:
-        print(f"❌ Lỗi kết nối kênh: {e}")
-
-# --- QUÉT PHIM ---
+# --- QUÉT PHIM (CHẾ ĐỘ PUBLIC - SIÊU ỔN ĐỊNH) ---
 async def refresh_catalog():
     global MOVIE_CATALOG
-    print("🔄 ĐANG QUÉT TOÀN BỘ FILE (CHẾ ĐỘ LẤY HẾT)...")
+    print(f"🔄 Đang quét kênh Public: @{CHANNEL_ID}...")
     temp = {}
     count = 0
     try:
-        # limit=0 là lấy tất cả. Nếu kênh quá nhiều (>2000) có thể chỉnh lại thành 500
-        async for msg in app.get_chat_history(CHANNEL_ID, limit=0):
+        # Kênh Public đọc cực nhanh và không bao giờ lỗi ID
+        async for msg in app.get_chat_history(CHANNEL_ID, limit=100):
             if msg.video or msg.document:
                 count += 1
+                # Lấy tên file
                 fname = msg.video.file_name if msg.video else (msg.document.file_name or msg.caption or "NoName")
                 
-                # Gọi hàm xử lý tên an toàn
-                name, ep = safe_parse_name(fname)
+                # Logic xử lý tên đơn giản: Lấy hết
+                base_name = os.path.splitext(fname)[0]
+                if " - " in base_name:
+                    try:
+                        name, ep = base_name.rsplit(" - ", 1)
+                        name = name.strip()
+                        ep = ep.strip()
+                    except:
+                        name, ep = base_name, "Full"
+                else:
+                    name, ep = base_name, "Full"
                 
-                # Thêm vào danh sách (Không lọc gì cả)
                 if name not in temp: temp[name] = {}
                 temp[name][ep] = msg.id
                 
         MOVIE_CATALOG = temp
-        print(f"✅ Đã tìm thấy {count} file video -> Gom thành {len(MOVIE_CATALOG)} phim.")
+        print(f"✅ HOÀN TẤT: Tìm thấy {count} file -> {len(MOVIE_CATALOG)} phim.")
     except Exception as e:
-        print(f"❌ LỖI QUÉT: {e}")
+        print(f"❌ LỖI: {e}")
 
-# --- API & STREAM ---
+# --- API HANDLERS ---
 async def get_catalog(request):
     if not MOVIE_CATALOG: await refresh_catalog()
     return web.json_response(MOVIE_CATALOG)
 
 async def trigger_refresh(request):
-    asyncio.create_task(refresh_catalog())
+    await refresh_catalog()
     return web.Response(text="Đang cập nhật...")
 
 async def stream_handler(request):
     try:
-        message_id = int(request.match_info['message_id'])
-        msg = await app.get_messages(CHANNEL_ID, message_id)
-        if not msg or (not msg.video and not msg.document):
-            return web.Response(status=404, text="Not Found")
+        # Lấy ID tin nhắn
+        msg_id = int(request.match_info['id'])
+        
+        # Lấy tin nhắn từ kênh Public
+        msg = await app.get_messages(CHANNEL_ID, msg_id)
+        
+        if not msg: return web.Response(status=404, text="Not Found")
 
         file_size = msg.video.file_size if msg.video else msg.document.file_size
         mime = msg.video.mime_type if msg.video else msg.document.mime_type
@@ -121,10 +98,10 @@ async def stream_handler(request):
         
         headers = {
             'Content-Type': mime,
-            'Accept-Ranges': 'bytes',
             'Content-Range': f'bytes {from_bytes}-{until_bytes}/{file_size}',
             'Content-Length': str(length),
             'Content-Disposition': 'inline',
+            'Accept-Ranges': 'bytes'
         }
         resp = web.StreamResponse(status=206 if range_header else 200, headers=headers)
         await resp.prepare(request)
@@ -135,21 +112,21 @@ async def stream_handler(request):
 
 # --- STARTUP ---
 async def on_startup():
-    print("🚀 Khởi động...")
+    print("🚀 Server Public đang khởi động...")
     await app.start()
-    await fix_channel_access() # Kết nối lại kênh
-    await refresh_catalog()    # Quét phim
+    await refresh_catalog()
 
 if __name__ == '__main__':
     loop = asyncio.get_event_loop()
     loop.run_until_complete(on_startup())
+    
     server = web.Application(middlewares=[cors_middleware])
     server.add_routes([
-        web.get('/', lambda r: web.Response(text="Server OK")),
+        web.get('/', lambda r: web.Response(text="Server Public OK")),
         web.get('/api/catalog', get_catalog),
         web.get('/api/refresh', trigger_refresh),
-        web.get('/watch/{message_id}', stream_handler)
+        web.get('/watch/{id}', stream_handler)
     ])
+    
     port = int(os.environ.get("PORT", 8080))
     web.run_app(server, port=port)
-
