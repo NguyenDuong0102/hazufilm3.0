@@ -13,7 +13,7 @@ CHANNEL_ID = -1003484849978      # THAY ID KÊNH (-100...)
 
 # --- [QUAN TRỌNG] ĐIỀN LINK MỜI VÀO ĐÂY ---
 # Link có dạng: https://t.me/+AbCdEfGhIjK...
-PRIVATE_LINK = "https://t.me/+xxxxxxxxxxxxxx" 
+PRIVATE_LINK = "https://t.me/+3MGJZA48w4E0YWE9" 
 # ====================================================
 
 # Khởi tạo Bot
@@ -146,3 +146,4 @@ if __name__ == '__main__':
     
     port = int(os.environ.get("PORT", 8080))
     web.run_app(server, port=port)
+
